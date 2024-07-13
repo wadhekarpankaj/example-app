@@ -5,6 +5,7 @@ on:
     paths-ignore:
       - 'README.md'
       - '.gitignore'
+      - 'docs/**'
     branches: [ "main" ]
   workflow_dispatch:
 
