@@ -18,6 +18,12 @@ Go to the project directory
   cd example-app
 ```
 
+Modify the CallMe service url in .env.prod file
+
+```bash
+  CALLME_SERVICE_URL=http://{call_me_service_url}/callme
+```
+
 Docker build
 
 ```bash
