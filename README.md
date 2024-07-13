@@ -21,13 +21,13 @@ Go to the project directory
 Docker build
 
 ```bash
-  docker build -t ctc-app:latest .
+  docker build -t example-app:latest .
 ```
 
 Start the container
 
 ```bash
-  docker run -d -p 8000:8000 ctc-app:latest
+  docker run -d -p 8000:8000 example-app:latest
 ```
 
 
