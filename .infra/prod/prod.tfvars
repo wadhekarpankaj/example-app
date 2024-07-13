@@ -1,0 +1,5 @@
+ami_id        = "ami-0346fd83e3383dcb4"
+instance_type = "t2.micro"
+subnet_id     = "subnet-021079279c6c6a6f3"
+vpc_id        = "vpc-0c9fa8d16afd1a094"
+key_name      = "pankaj"

@@ -1,0 +1,35 @@
+---
+- name: Install Docker
+  hosts: localhost
+  become: true
+
+  tasks:
+    - name: Ensure the system is up to date
+      yum:
+        name: "*"
+        state: latest
+
+    - name: Install Docker
+      shell: |
+        amazon-linux-extras enable docker
+        yum install -y docker
+
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to the docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    - name: Verify Docker installation
+      command: docker --version
+      register: docker_version
+
+    - name: Print Docker version
+      debug:
+        msg: "Docker version installed: {{ docker_version.stdout }}"

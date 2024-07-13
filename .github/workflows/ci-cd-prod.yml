@@ -1,0 +1,99 @@
+name: build and deploy
+
+on:
+  push:
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  ci-cd-prod-build-push:
+    runs-on: ubuntu-latest
+    env:
+      S3_BUCKET: web-config-scripts-bucket
+      TERRAFORM_VAR_FILE: prod.tfvars
+      REGION: eu-central-1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Upload playbook to S3
+        run: |
+          aws s3 cp .config/playbooks/config.yml s3://${{ env.S3_BUCKET }}/config.yml
+
+      - name: Install Terraform
+        run: |
+          sudo apt-get install -y gnupg software-properties-common curl
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get install -y terraform
+          terraform --version
+      
+      - name: Terraform Apply
+        id: apply
+        run: |
+          cd .infra/prod
+          terraform init
+          terraform apply -var-file=${{ env.TERRAFORM_VAR_FILE }} -auto-approve
+          echo "PUBLIC_IP=$(terraform output -raw ec2_public_ip)" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$(terraform output -raw ec2_instance_id)" >> $GITHUB_ENV
+        continue-on-error: false
+
+      - name: Docker Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      
+      - name: Version
+        id: version
+        run: echo "RUN_NUMBER=${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+
+      - name: Build and Tag Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:${{ env.RUN_NUMBER }} .
+          docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:${{ env.RUN_NUMBER }} ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:latest
+      
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:${{ env.RUN_NUMBER }}
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:latest
+      
+      - name: Check EC2 Status Checks
+        id: ec2-status-check
+        run: |
+          while true; do
+            STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query 'InstanceStatuses[0].InstanceStatus.Status' --output text)
+            SYSTEM_STATUS=$(aws ec2 describe-instance-status --instance-ids $INSTANCE_ID --query 'InstanceStatuses[0].SystemStatus.Status' --output text)
+            if [[ "$STATUS" == "ok" && "$SYSTEM_STATUS" == "ok" ]]; then
+              echo "Both EC2 status checks are complete."
+              break
+            else
+              echo "Waiting for EC2 status checks to complete..."
+              sleep 60
+            fi
+          done
+      
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.PUBLIC_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            docker stop example-app || true
+            docker rm example-app || true
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:${{ env.RUN_NUMBER }}
+            docker run -d --name example-app -p 8000:8000 ${{ secrets.DOCKER_HUB_USERNAME }}/example-app:${{ env.RUN_NUMBER }}
+            sleep 5s
+            curl -X 'POST' 'http://${{ env.PUBLIC_IP }}:8000/start' -H 'Content-Type: application/json' -d '{"url": "http://${{ env.PUBLIC_IP }}:8000/hello"}'
