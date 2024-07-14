@@ -42,25 +42,25 @@ Start the container
 /start - Initiates the call to CallMe service
 
 ```bash
-  curl -X 'POST' 'http://{example_service_url}:8000/start' -H 'Content-Type: application/json' -d '{"url": "http://example_service_url:8000/hello"}'
+  curl -X 'POST' 'http://localhost:8000/start' -H 'Content-Type: application/json' -d '{"url": "http://example_service_url:8000/hello"}'
 ```
 
 /hello - Captures the message from CallMe service
 
 ```bash
-  curl -X 'POST' 'http://{example_service_url}:8000/hello' -H 'Content-Type: application/json' -d '{"hello": "some text"}'
+  curl -X 'POST' 'http://localhost:8000/hello' -H 'Content-Type: application/json' -d '{"hello": "some text"}'
 ```
 
 /callback_data - Retrieve the message sent by Call Me service
 
 ```bash
-  curl -X 'GET' 'http://{example_service_url}:8000/callback_data' -H 'accept: application/json'
+  curl -X 'GET' 'http://localhost:8000/callback_data' -H 'accept: application/json'
 ```
 
 /health - Health Status of API
 
 ```bash
-  curl -X 'GET' 'http://{example_service_url}:8000/health' -H 'Content-Type: application/json'
+  curl -X 'GET' 'http://localhost:8000/health' -H 'Content-Type: application/json'
 ```
 
 ## CI/CD Flow
