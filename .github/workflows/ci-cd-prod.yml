@@ -83,6 +83,7 @@ jobs:
               echo "Waiting for EC2 status checks to complete..."
               sleep 60
             fi
+            sleep 5
           done
       
       - name: Deploy to EC2
